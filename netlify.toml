@@ -1,0 +1,14 @@
+# SeenZone is a single static page. No build step.
+[build]
+  publish = "."
+
+# Security headers. The Content-Security-Policy below makes the browser itself
+# refuse any network request from the page (connect-src 'none'), so a chat can
+# never be uploaded, even by mistake. Fonts and libraries are embedded in index.html.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src 'self' data: blob:; connect-src 'none'; frame-src 'self' about: blob:; child-src blob:; worker-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
