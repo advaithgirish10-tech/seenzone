@@ -346,6 +346,18 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
 .legal h4{font:600 13px var(--sans);letter-spacing:.08em;text-transform:uppercase;margin:18px 0 4px;color:var(--ink)}
 .legal p,.legal li{max-width:65ch}
 .legal .upd{color:var(--muted);font-size:12.5px}
+.pairpick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:400 18px var(--serif)}
+.pairpick select{font:500 14px var(--sans);color:var(--ink);background:var(--paper-2);border:1px solid #cfc2ae;border-radius:999px;padding:7px 12px;max-width:44vw}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rc td.aw{font:700 6cqw/1 var(--hand);color:var(--accent-ink)}
+.rank .drow .dn{white-space:nowrap}
+.kinds{display:grid;gap:10px;width:100%}
+.kind{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:2px;align-items:center;text-align:left;background:#fff;border:1.5px solid var(--rule);border-radius:16px;padding:14px 16px;cursor:pointer;font:inherit;color:var(--ink)}
+.kind:hover,.kind:focus-visible{border-color:var(--accent)}
+.kind .ki{grid-row:span 2;font-size:28px}
+.kind b{font:400 24px/1.1 var(--serif)}
+.kind span:last-child{font-size:12.5px;color:var(--muted);line-height:1.35}
+.kindnote{flex-basis:100%;font-size:13px;color:var(--accent-ink);background:#fbeee6;border-radius:10px;padding:8px 10px}
 </style>
 
 </head>
@@ -375,7 +387,7 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
           <strong>Drop your WhatsApp chat here</strong>
           <span class="sub">Export without media · .txt or .zip</span>
           <div class="drop-row">
-            <label class="btn" for="file">Choose chat</label>
+            <button class="btn" type="button" data-pick>Choose chat</button>
             <button class="textlink" type="button" id="tryEx">Try an example →</button>
           </div>
         </div>
@@ -405,6 +417,17 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
         <p class="sub">Tap the right side or swipe to go forward. Every card is made from your chat. Save any card for Stories, then send the last one to your friend.</p>
         </div>
         <div class="sc-ctrl">
+        <div class="voice" id="kindRow" hidden><span>Chat</span>
+          <div class="seg" role="group" aria-label="Chat type">
+            <button type="button" data-kind="group" aria-pressed="true">Whole group</button>
+            <button type="button" data-kind="pair" aria-pressed="false">Two people</button>
+          </div>
+        </div>
+        <div class="pairpick" id="pairRow" hidden>
+          <label class="sr" for="pA">First person</label><select id="pA"></select>
+          <span>&amp;</span>
+          <label class="sr" for="pB">Second person</label><select id="pB"></select>
+        </div>
         <div class="voice"><span>Voice</span>
           <div class="seg" role="group" aria-label="Caption voice">
             <button type="button" data-mode="auto" aria-pressed="true" id="modeAuto">Auto</button>
@@ -653,13 +676,14 @@ function parseChat(raw){
     if(isNaN(t)) continue;
     const body=e.body.replace(/[‎‏]/g,'').replace(/\s*<This message was edited>\s*$/i,'').trim();
     if(/end-to-end encrypted/i.test(body)&&body.length<260) continue;
+    if(/^\s*[\u200e\u200f]/.test(e.body)&&!LOR_MEDIA.test(body)&&!LOR_DELETED.test(body)) continue; // system event, not a message
     msgs.push({t,who:e.who,text:body,media:LOR_MEDIA.test(body),voice:LOR_VOICE.test(body),deleted:LOR_DELETED.test(body)});
   }
   return msgs;
 }
 
 /* ===== Analysis ===== */
-const LOR_STOP=new Set(('the a an and or but is are was were be been i you me my mine it its to of in on for that this with so just do does did not no yes at have has had he she we they them him her our your ur u what im i\'m it\'s dont don\'t cant can\'t can will would could should get got like know also if then there how all one go too oh from am about out up when why who really yeah yea ya yaa yup ok okay okk kk k hmm hm haa ha haan han hai he hain na nahi nhi nai toh to ki ka ke ko se me mein main mai mera meri tu tum tera teri aap hum kya kyu kyun kyon bhi ye yeh wo woh vo ho hu hoon hun tha thi the kar kr karo raha rahi rha rhi rahe hoga hogi ab abhi bas aur par pe ek koi kuch sab acha accha achha thik theek re lol media omitted message deleted edited null https http www com wait some any more than now see well want need going gonna let lets that\'s thats here audio image video sticker file attached opus').split(' '));
+const LOR_STOP=new Set(('the a an and or but is are was were be been i you me my mine it its to of in on for that this with so just do does did not no yes at have has had he she we they them him her our your ur u what im i\'m it\'s dont don\'t cant can\'t can will would could should get got like know also if then there how all one go too oh from am about out up when why who really yeah yea ya yaa yup ok okay okk kk k hmm hm haa ha haan han hai he hain na nahi nhi nai toh to ki ka ke ko se me mein main mai mera meri tu tum tera teri aap hum kya kyu kyun kyon bhi ye yeh wo woh vo ho hu hoon hun tha thi the kar kr karo raha rahi rha rhi rahe hoga hogi ab abhi bas aur par pe ek koi kuch sab acha accha achha thik theek re lol media omitted message deleted edited null https http www com wait some any more than now see well want need going gonna let lets that\'s thats here audio image video sticker file attached opus guys').split(' '));
 const LOR_LAUGH=/\b(?:a?ha(?:ha)+h?|he(?:he)+|lo+l|lmao+|lmfao|rofl)\b|😂|🤣|😭|💀/gi;
 const LOR_LOVE=/\b(?:love (?:you|u|ya)|luv (?:you|u)|miss(?:ed|ing)? (?:you|u)|proud of (?:you|u)|thank(?:s| you)|thanku|thnx|thx)\b|❤️|❤|🥺|🫶|🥰|😘|💕|💖|🤗/gi;
 const LOR_EMOJI=/\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*/gu;
@@ -675,12 +699,12 @@ function lorDayKey(t){const d=new Date(t);return d.getFullYear()*10000+(d.getMon
 function lorKeyUTC(k){return Date.UTC(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100)}
 function lorTopN(obj,n){return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n)}
 
-function analyze(all){
+function analyze(all,pair){
   const counts={};
   for(const m of all) counts[m.who]=(counts[m.who]||0)+1;
   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   if(ranked.length<2) throw new Error('This chat only has one person in it. Export a chat between you and one friend.');
-  const names=[ranked[0][0],ranked[1][0]];
+  const names=pair&&pair.length===2&&pair[0]!==pair[1]?pair.slice():[ranked[0][0],ranked[1][0]];
   const msgs=all.filter(m=>m.who===names[0]||m.who===names[1]).sort((a,b)=>a.t-b.t);
   if(msgs.length<20) throw new Error('Only '+msgs.length+' messages found. You need at least 20 for a story.');
   const P=names.map(n=>({name:n,fast:0,msgs:0,words:0,media:0,voice:0,deleted:0,starts:0,lastWord:0,replies:[],double:0,night:0,laughs:0,love:0,questions:0,dry:0,plans:0,calls:0,sorry:0,emoji:{},vocab:{},hours:new Array(24).fill(0)}));
@@ -746,7 +770,7 @@ function analyze(all){
   const busiest=lorTopN(days,1)[0];
   if(sess&&(!longest||sess.n>longest.n)) longest=sess;
   const years={}; for(const mo of monthList) years[mo.y]=(years[mo.y]||0)+mo.c;
-  const res={longest,latest,years,capped:msgs.length>=39000,words:P[0].words+P[1].words,names,group:ranked.length>2,P,total:msgs.length,first:msgs[0].t,last:msgs[msgs.length-1].t,activeDays:keys.length,
+  const res={longest,latest,years,capped:msgs.length>=39000,words:P[0].words+P[1].words,names,fromGroup:ranked.length>2,P,total:msgs.length,first:msgs[0].t,last:msgs[msgs.length-1].t,activeDays:keys.length,
     streak:best,streakEnd:bestEnd,busiest:{key:+busiest[0],count:busiest[1]},effort:[effortA,1-effortA],
     desiScore:desiHits/Math.max(1,textMsgs),months:monthList,peak,maxGap,gapFrom,gapTo,gapBreak,
     nightPeak:nightPeak==null?null:{k:nightPeak,y:Math.floor(nightPeak/12),m:nightPeak%12,c:nightMonths[nightPeak]},
@@ -843,7 +867,153 @@ function sampleChat(kind){
   return out.map(([t,w,x])=>{const d=new Date(t);let h=d.getHours();const ap=h>=12?'pm':'am';h=h%12||12;
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}, ${h}:${pad(d.getMinutes())} ${ap} - ${w}: ${x}`}).join('\n');
 }
-if(typeof module!=='undefined') module.exports={parseChat,analyze,sampleChat,LOR_PERSONA};
+
+/* ===== Group analysis ===== */
+function analyzeGroup(all){
+  const counts={};
+  for(const m of all) counts[m.who]=(counts[m.who]||0)+1;
+  const names=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  if(names.length<3) throw new Error('This chat has fewer than 3 people.');
+  const msgs=[...all].sort((a,b)=>a.t-b.t);
+  if(msgs.length<30) throw new Error('Only '+msgs.length+' messages found. You need at least 30 for a group story.');
+  const ix=Object.fromEntries(names.map((n,i)=>[n,i]));
+  const M=names.map(n=>({name:n,lastWord:0,msgs:0,words:0,media:0,voice:0,starts:0,replies:[],double:0,night:0,laughs:0,love:0,questions:0,dry:0,plans:0,calls:0,sorry:0,textMsgs:0,hours:new Array(24).fill(0),vocab:{},emoji:{}}));
+  const pairs={}, days={}, months={}, nightMonths={}, totalVocab={};
+  let prev=null, sess=null, longest=null, latest=null, maxGap=0, gapFrom=null, gapBreak=0, firstText=null, desiHits=0, textMsgs=0;
+  for(const m of msgs){
+    const i=ix[m.who], p=M[i], gap=prev?m.t-prev.t:Infinity;
+    if(prev&&gap>maxGap){maxGap=gap;gapFrom=prev.t;gapBreak=i;}
+    if(gap>6*LOR_H){p.starts++; if(prev) M[ix[prev.who]].lastWord++; if(sess&&(!longest||sess.n>longest.n)) longest=sess; sess={n:0,s:m.t,e:m.t};}
+    else if(prev.who!==m.who){p.replies.push(gap);const j=ix[prev.who],k=i<j?i+'-'+j:j+'-'+i;pairs[k]=(pairs[k]||0)+1;}
+    else if(gap>=20*LOR_MIN) p.double++;
+    sess.n++; sess.e=m.t;
+    p.msgs++;
+    const dt=new Date(m.t), hr=dt.getHours(), mk=dt.getFullYear()*12+dt.getMonth(); p.hours[hr]++;
+    if(hr<5){p.night++;nightMonths[mk]=(nightMonths[mk]||0)+1;const mm=hr*60+dt.getMinutes();if(!latest||mm>latest.mm) latest={mm,t:m.t,who:i};}
+    const dk=lorDayKey(m.t); days[dk]=(days[dk]||0)+1; months[mk]=(months[mk]||0)+1;
+    prev=m;
+    if(m.voice) p.voice++;
+    if(m.media||m.deleted){if(m.media)p.media++;continue}
+    p.textMsgs++; textMsgs++;
+    if(LOR_DESI.test(m.text)) desiHits++;
+    if(!firstText&&m.text.length>1) firstText={who:i,text:m.text,t:m.t};
+    const words=m.text.toLowerCase().match(/[\p{L}']+/gu)||[];
+    p.words+=words.length;
+    for(const w of words){const c=w.replace(/^'+|'+$/g,'');if(c.length>=3&&!LOR_STOP.has(c)&&!/^(ha)+h?$|^(he)+$|^h+m+$/.test(c)){p.vocab[c]=(p.vocab[c]||0)+1;totalVocab[c]=(totalVocab[c]||0)+1;}}
+    p.laughs+=(m.text.match(LOR_LAUGH)||[]).length;
+    p.love+=(m.text.match(LOR_LOVE)||[]).length;
+    if(m.text.includes('?')) p.questions++;
+    if(LOR_DRY.has(m.text.toLowerCase().replace(/[.!]+$/,'').trim())) p.dry++;
+    if(LOR_PLAN.test(m.text)) p.plans++;
+    if(LOR_CALL.test(m.text)) p.calls++;
+    if(LOR_SORRY.test(m.text)) p.sorry++;
+    for(const e of (m.text.match(LOR_EMOJI)||[])) p.emoji[e]=(p.emoji[e]||0)+1;
+  }
+  if(sess&&(!longest||sess.n>longest.n)) longest=sess;
+  for(const p of M){
+    p.medianReply=lorMedian(p.replies);
+    p.peakHour=p.hours.indexOf(Math.max(...p.hours));
+    p.topEmoji=lorTopN(p.emoji,3).map(x=>x[0]);
+    const me=p.vocab;
+    p.signature=Object.keys(me).filter(w=>me[w]>=3).map(w=>[w,me[w]*(me[w]/totalVocab[w])]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+    p.sigTop=p.signature.length?[p.signature[0],me[p.signature[0]]]:null;
+    delete p.vocab; delete p.emoji; delete p.hours;
+  }
+  const keys=Object.keys(days).map(Number).sort((a,b)=>a-b);
+  let best=1,cur=1,bestEnd=keys[0];
+  for(let i=1;i<keys.length;i++){if(lorKeyUTC(keys[i])-lorKeyUTC(keys[i-1])===LOR_DAY){cur++;if(cur>best){best=cur;bestEnd=keys[i]}}else cur=1;}
+  const mkeys=Object.keys(months).map(Number);
+  const pk=mkeys.reduce((a,b)=>months[b]>months[a]?b:a);
+  const nk=Object.keys(nightMonths).map(Number), np=nk.length?nk.reduce((a,b)=>nightMonths[b]>nightMonths[a]?b:a):null;
+  const busiest=lorTopN(days,1)[0];
+  const bestPairs=Object.entries(pairs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,c])=>{const [a,b]=k.split('-').map(Number);return [a,b,c]});
+  const res={group:true,names,M,total:msgs.length,first:msgs[0].t,last:msgs[msgs.length-1].t,activeDays:keys.length,streak:best,streakEnd:bestEnd,
+    busiest:{key:+busiest[0],count:busiest[1]},desiScore:desiHits/Math.max(1,textMsgs),peak:{k:pk,y:Math.floor(pk/12),m:pk%12,c:months[pk]},
+    nightPeak:np==null?null:{y:Math.floor(np/12),m:np%12,c:nightMonths[np]},maxGap,gapFrom,gapBreak,firstText,longest,latest,
+    words:M.reduce((s,p)=>s+p.words,0),capped:msgs.length>=39000,pairs:bestPairs};
+  res.awards=lorGroupAwards(res);
+  return res;
+}
+const LOR_GAWARDS=[
+  ['talker',p=>p.msgs,p=>true],
+  ['starter',p=>p.starts,p=>p.starts>=3],
+  ['ghost',p=>p.medianReply||0,p=>p.replies.length>=10],
+  ['media',p=>p.media/p.msgs,p=>p.media>=5],
+  ['owl',p=>p.night/p.msgs,p=>p.night>=5],
+  ['laugh',p=>p.laughs/p.msgs,p=>p.laughs>=5],
+  ['dry',p=>p.textMsgs?p.dry/p.textMsgs:0,p=>p.dry>=5],
+  ['planner',p=>p.plans/p.msgs,p=>p.plans>=3],
+  ['curious',p=>p.questions/p.msgs,p=>p.questions>=5],
+  ['novelist',p=>p.textMsgs?p.words/p.textMsgs:0,p=>p.textMsgs>=20],
+  ['soft',p=>p.love/p.msgs,p=>p.love>=3],
+  ['speed',p=>p.medianReply?1/p.medianReply:0,p=>p.replies.length>=10],
+  ['double',p=>p.double/p.msgs,p=>p.double>=3],
+  ['killer',p=>p.lastWord/p.msgs,p=>p.lastWord>=5],
+];
+function lorGroupAwards(r){
+  const M=r.M, out=new Array(M.length).fill(null), active=M.map(p=>p.msgs>=5);
+  if(M.length>=4){let lo=-1;M.forEach((p,i)=>{if(lo<0||p.msgs<M[lo].msgs)lo=i});out[lo]='lurker';}
+  const left=new Set(LOR_GAWARDS.map(a=>a[0]));
+  for(;;){
+    let best=null;
+    for(const [key,v,ok] of LOR_GAWARDS){
+      if(!left.has(key)) continue;
+      const vals=M.map((p,i)=>active[i]&&ok(p)?v(p):0), mean=vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.filter(x=>x>0).length);
+      M.forEach((p,i)=>{if(out[i]||!vals[i]||!mean)return;const s=vals[i]/mean;if(!best||s>best.s)best={key,i,s}});
+    }
+    if(!best) break;
+    out[best.i]=best.key; left.delete(best.key);
+  }
+  return out.map(k=>k||'steady');
+}
+const LOR_GAWARD={
+  talker:{g:['Main Character','Half the chat is just them.'],d:['Main Character','Aadha group inhi ka hai.']},
+  starter:{g:['The Alarm Clock','Wakes the group up every single day.'],d:['Group Ka Alarm','Roz group ko yahi jagate hai.']},
+  ghost:{g:['The Ghost','Seen. Will reply. Eventually.'],d:['Seen-Zone Sarkar','Seen kiya. Reply? Kabhi na kabhi.']},
+  media:{g:['The Meme Lord','Communicates exclusively in reels.'],d:['Reel Supplier','Reels ke bina baat nahi hoti.']},
+  owl:{g:['2am Philosopher','Runs the night shift.'],d:['2am Philosopher','Neend? Woh kya hota hai.']},
+  laugh:{g:['The Laugh Track','Everything is 😂. Everything.'],d:['Haha Machine','Har cheez pe 😂.']},
+  dry:{g:['Captain K','Replies like every letter costs money.'],d:['Hmm Machine','"Hmm." "Ok." Bas itna hi.']},
+  planner:{g:['The Planner','Keeps trying to make plans happen.'],d:['Kal Pakka','Plans: bahut. Pakka: debatable.']},
+  curious:{g:['The Interviewer','Asks the questions that keep it alive.'],d:['Kya Scene Hai','Hamesha: "aur bata?"']},
+  novelist:{g:['The Novelist','Sends paragraphs. Expects paragraphs.'],d:['Lambi Kahani','Ek reply, teen paragraph.']},
+  soft:{g:['The Softie','Hearts, thank-yous and miss-yous.'],d:['Dil Se','Pura softie.']},
+  speed:{g:['The Speedrunner','Replies before you lock your phone.'],d:['Turant Reply','Itna fast? Suspicious.']},
+  double:{g:['Double Texter','"??" is a complete sentence.'],d:['"Oye??" Champion','Reply nahi aaya toh "oye??"']},
+  lurker:{g:['The Lurker','Reads everything. Says nothing.'],d:['Silent Reader','Sab padhte hai, bolte kuch nahi.']},
+  killer:{g:['Conversation Killer','Sends one message. Group goes silent.'],d:['Chat Ka Dushman','Inka message aaya, group so gaya.']},
+  steady:{g:['The Steady One','No extremes. Just keeps showing up.'],d:['Ekdum Steady','No drama. Bas consistent.']},
+};
+function sampleGroup(){
+  const r=lorRng(41), pick=a=>a[Math.floor(r()*a.length)];
+  const N=['Aarav','Zoya','Kabir','Meher','Rohan','Ishaan'], W=[0.3,0.24,0.18,0.16,0.09,0.03];
+  const L=['bhai sun','hahaha','who is coming tonight?','lmao','kal milte hai pakka','ok','hmm','send the address','bro what 😂','I literally cannot 😭','sach mein?','scene kya hai aaj','chal chai pe chalte hai','are you guys free this weekend?','okay so listen to this','abe 😭','💀💀','sorry late','haan haan','did you see this','yaar I miss college','proud of you guys ❤️','k','who ate my maggi'];
+  const out=[], push=(t,w,x)=>out.push([t,w,x]);
+  let t=new Date(2025,1,3,21,10).getTime();
+  push(t,'Aarav','welcome to the group guys');push(t+60e3,'Zoya','finally a group without the seniors 😂');
+  const end=new Date(2026,8,28);
+  for(let d=new Date(2025,1,4);d<=end;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1)){
+    if(r()<0.3) continue;
+    const sessions=r()<0.25?[11+Math.floor(r()*3),22+Math.floor(r()*2)]:[13+Math.floor(r()*8)];
+    for(const hr of sessions){
+      let ts=new Date(d.getFullYear(),d.getMonth(),d.getDate(),hr,Math.floor(r()*50)).getTime(), last='';
+      const turns=4+Math.floor(r()*18);
+      for(let k=0;k<turns;k++){
+        let who; do{let x=r(),acc=0;who=N[N.length-1];for(let i=0;i<N.length;i++){acc+=W[i];if(x<acc){who=N[i];break}}}while(who===last&&r()<0.7);
+        if(k) ts+=who==='Kabir'?(8+r()*90)*60e3:(0.3+r()*7)*60e3;
+        if(who==='Meher'&&r()<0.25) ts=new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59).getTime()+(1+r()*120)*60e3;
+        const text=who==='Zoya'&&r()<0.35?'<Media omitted>':who==='Meher'&&r()<0.12?'audio omitted':pick(L);
+        push(ts,who,text); last=who;
+      }
+    }
+  }
+  out.sort((a,b)=>a[0]-b[0]);
+  const pad=n=>String(n).padStart(2,'0');
+  return out.map(([t,w,x])=>{const d=new Date(t);let h=d.getHours();const ap=h>=12?'pm':'am';h=h%12||12;
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}, ${h}:${pad(d.getMinutes())} ${ap} - ${w}: ${x}`}).join('\n');
+}
+if(typeof module!=='undefined') module.exports={parseChat,analyze,analyzeGroup,sampleChat,sampleGroup,LOR_PERSONA,LOR_GAWARD};
+
 </script>
 <script>
 (()=>{
@@ -861,7 +1031,7 @@ function fmtDate(t){return new Date(t).toLocaleDateString(undefined,{day:'numeri
 function monthYear(y,m){return new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'})}
 function keyDate(k){return new Date(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100).getTime()}
 
-const state={shared:false,shareLink:'',anon:false,res:null,mode:'auto',example:'global',callout:'',slides:[],idx:0};
+const state={want:null,kindNote:'',raw:null,senders:[],kind:'pair',pair:[],groupName:'',shared:false,shareLink:'',anon:false,res:null,mode:'auto',example:'global',callout:'',slides:[],idx:0};
 const effMode=()=>state.mode==='auto'?(state.res&&state.res.desiScore>=0.06?'desi':'global'):state.mode;
 
 /* hand-drawn doodles */
@@ -962,6 +1132,7 @@ function spanText(r,D){
 function gradeOf(s){return s>=.65?'A+':s>=.57?'A':s>=.5?'B+':s>=.43?'B':s>=.35?'C':'D'}
 
 function renderNotes(r,mode){
+  if(r.group) return renderNotesG(r,mode);
   const tilts=[-1.6,1.3,-0.9,1.1,-1.3,0.7,-0.6,1.5,-1.1];
   $('notes').innerHTML=buildNotes(r,mode).map((n,i)=>`<div class="nwrap" style="transform:rotate(${tilts[i%9]}deg)"><div class="note ${n.cls}" style="clip-path:${torn(i+3)}">${n.h}</div></div>`).join('');
   const D=mode==='desi';
@@ -994,6 +1165,7 @@ function typeData(r,mode){
   return {w,para};
 }
 function renderStory(r,mode){
+  if(r.group) return renderStoryG(r,mode);
   const [A,B]=r.P;
   $('timeline').innerHTML=storyItems(r,mode).map(it=>`<li><div class="when">${esc(new Date(it.t).toLocaleDateString(undefined,{month:'short',year:'numeric'}))}</div><div class="what">${it.what}</div><div class="detail">${it.detail}</div></li>`).join('');
   $('polCap').innerHTML=`${first(A.name)} &amp; ${first(B.name)} · est. ${new Date(r.first).getFullYear()}`;
@@ -1003,6 +1175,7 @@ function renderStory(r,mode){
 }
 
 function computeCallout(r,mode){
+  if(r.group) return computeCalloutG(r,mode);
   const D=mode==='desi', [A,B]=r.P, a=first(A.name), b=first(B.name);
   const [ka,kb]=r.personaKeys, pa=LOR_PERSONA[ka][D?'d':'g'], pb=LOR_PERSONA[kb][D?'d':'g'];
   const target=(kb==='ghost'||(ka!=='ghost'&&r.effort[1]<=r.effort[0]))?1:0, tp=target?pb:pa, tn=target?b:a;
@@ -1014,6 +1187,7 @@ function computeCallout(r,mode){
 
 const SLBG=['#f4ede2','#f6e2d6','#e8e3f3','#e5ecdc','#f7edca'];
 function buildSlides(r,mode){
+  if(r.group) return buildSlidesG(r,mode);
   const D=mode==='desi', T=(d,g)=>D?d:g, [A,B]=r.P, a=first(A.name), b=first(B.name);
   const tilts=[-2,1.6,-1.2,1.4,-1.6,1,-0.8,1.8,-1.4,1.2];
   const S=[];
@@ -1082,6 +1256,7 @@ function showSlide(i){
 }
 
 function buildTable(r,mode){
+  if(r.group) return buildTableG(r,mode);
   const [A,B]=r.P, D=mode==='desi';
   const rows=[
     ['Messages',A.msgs,B.msgs,'hi'],['Words',A.words,B.words,'hi'],['Conversations started',A.starts,B.starts,'hi'],
@@ -1111,6 +1286,7 @@ async function streamBytes(u8,Ctor){const cs=new Ctor('deflate-raw');const w=cs.
 const PF=['msgs','words','media','voice','deleted','starts','lastWord','double','night','laughs','love','questions','dry','plans','calls','sorry','fast','textMsgs','peakHour'];
 const mn=t=>Math.round(t/6e4), ms=m=>m*6e4;
 function packResult(r){
+  if(r.group) return packGroup(r);
   const init=n=>(n.trim()[0]||'?').toUpperCase()+'.';
   const P=r.P.map(p=>[state.anon?init(p.name):p.name,...PF.map(k=>p[k]),p.medianReply==null?-1:Math.round(p.medianReply/1000),p.replies.length,
     state.anon?[]:p.signature,state.anon||!p.sigTop?0:p.sigTop[1],p.topEmoji.join('')]);
@@ -1121,6 +1297,7 @@ function packResult(r){
     L:r.longest?[r.longest.n,mn(r.longest.s),mn(r.longest.e)]:0,lt:r.latest?[r.latest.mm,mn(r.latest.t),r.latest.who]:0,w:r.words,c:r.capped?1:0,k:r.personaKeys};
 }
 function unpackResult(o){
+  if(o&&o.v===3) return unpackGroup(o);
   if(!o||o.v!==2||!Array.isArray(o.P)||o.P.length!==2) throw new Error('bad link');
   const P=o.P.map(a=>{const p={name:String(a[0]).slice(0,40)};PF.forEach((k,i)=>p[k]=+a[i+1]||0);let j=PF.length+1;
     const mr=a[j++];p.medianReply=mr<0?null:mr*1000;p.replies={length:a[j++]};p.signature=(a[j++]||[]).map(String).slice(0,3);
@@ -1156,6 +1333,193 @@ async function updateShareLinks(){
   $('waBtn').href='https://wa.me/?text='+encodeURIComponent(state.waText);
 }
 
+
+/* ===================== GROUP MODE ===================== */
+const gname=()=>state.anon||!state.groupName?'Your group':esc(state.groupName);
+const gAward=(r,i,D)=>LOR_GAWARD[r.awards[i]][D?'d':'g'];
+function lb(r,fn,fmt=fmtN,opts={}){
+  const n=opts.n||5, rows=r.M.map((p,i)=>({p,i,v:fn(p)})).filter(x=>opts.keepZero||x.v>0);
+  rows.sort((a,b)=>opts.asc?a.v-b.v:b.v-a.v);
+  const top=rows.slice(0,n), mx=Math.max(...top.map(x=>x.v),1e-9);
+  return `<div class="duo rank">${top.map((x,k)=>`<div class="drow"><span class="dn">${k+1}. ${first(x.p.name)}</span><span class="dbar"><i style="width:${Math.max(4,(opts.asc?(mx?Math.min(1,(top[0].v||1)/(x.v||1)):1):x.v/mx)*100).toFixed(0)}%"></i></span><span class="dv">${fmt(x.v)}</span></div>`).join('')}</div>`;
+}
+function topBy(r,fn,ok=()=>true){let b=null;r.M.forEach(p=>{if(!ok(p))return;if(!b||fn(p)>fn(b))b=p});return b||r.M[0]}
+function buildNotesG(r,mode){
+  const D=mode==='desi', T=(d,g)=>D?d:g, N=p=>first(p.name), notes=[], span=spanText(r,D);
+  const note=(q,cls,title,body,extra='')=>notes.push({q,cls,h:`<div class="ntitle">${title}</div>${body}${extra}`});
+  const talk=topBy(r,p=>p.msgs), share=talk.msgs/r.total;
+  note(T('Group mein sabse zyada <em>kaun bolta hai?</em>','Who never <em>stops talking?</em>'),'ruled','Main character',
+    `<div class="nname">${N(talk)} <span class="mark">${pct(share)}</span></div><div class="nbody">${T(`Group ke ${pct(share)} messages. Baaki sab background actors hai.`,`${pct(share)} of every message. Everyone else is a background character.`)}</div>${lb(r,p=>p.msgs)}`,DOODLE.crown);
+  const st=topBy(r,p=>p.starts);
+  note(T('Group ko <em>kaun jagata hai?</em>','Who keeps <em>this group alive?</em>'),'butter',T('Group ka alarm','The alarm clock'),
+    `<div class="nname">${N(st)}</div><div class="nbody">${T(`${fmtN(st.starts)} baar mare hue group ko zinda kiya.`,`Revived a dead group chat ${fmtN(st.starts)} times. Unpaid.`)}</div>${lb(r,p=>p.starts)}`,DOODLE.ticks);
+  const kl=topBy(r,p=>p.msgs?p.lastWord/p.msgs:0,p=>p.lastWord>=5);
+  note(T('Kiske message pe <em>group so jaata hai?</em>','Whose message <em>kills the chat?</em>'),'peach',T('Chat ka dushman','Conversation killer'),
+    `<div class="nname">${N(kl)}</div><div class="nbody">${T(`${fmtN(kl.lastWord)} baar inka message aaya aur group 6 ghante ke liye so gaya.`,`${fmtN(kl.lastWord)} times they sent a message and nobody spoke for 6+ hours.`)}</div>${lb(r,p=>p.lastWord)}`,DOODLE.zz);
+  const ghs=r.M.filter(p=>p.replies.length>=10), gh=topBy({M:ghs.length?ghs:r.M},p=>p.medianReply||0);
+  note(T('Reply ka <em>intezaar.</em>','Waiting for <em>a reply.</em>'),'peach',T('Seen-zone sarkar','Certified ghost'),
+    `<div class="nname">${N(gh)}</div><div class="nbody">${T(`Typical reply: ${fmtDur(gh.medianReply)}. Shayad kuch bada likh rahe hai. Shayad nahi.`,`Typical reply: ${fmtDur(gh.medianReply)}. Probably typing an essay. Probably not.`)}</div>${lb({M:ghs},p=>p.medianReply||0,v=>fmtDur(v).replace(' minutes','m').replace('under a minute','<1m'))}`,DOODLE.ghost);
+  const owl=topBy(r,p=>p.night);
+  note(T('Raat ke 2 baje <em>kaun jaagta hai?</em>','The <em>2am crew.</em>'),'dark','2am crew',
+    `<div class="nname">${N(owl)}</div><div class="nbody">${T(`${fmtN(owl.night)} texts raat 12 ke baad. Neend sirf afwah hai.`,`${fmtN(owl.night)} texts after midnight. Their sleep schedule is a rumour.`)}</div>${lb(r,p=>p.night)}`,DOODLE.moon);
+  const mediaTot=r.M.reduce((s,p)=>s+p.media,0);
+  if(mediaTot>=5){const md=topBy(r,p=>p.media);
+    note(T('Reels kaun <em>bhejta hai?</em>','Who sends <em>all the reels?</em>'),'sage',T('Reel supplier','The meme lord'),
+      `<div class="nname">${N(md)}</div><div class="nbody">${T(`${fmtN(md.media)} reels aur photos. Typing se allergy hai.`,`${fmtN(md.media)} reels and photos. Allergic to typing a full sentence.`)}</div>${lb(r,p=>p.media)}`,DOODLE.laugh);}
+  const lur=r.M.reduce((a,b)=>b.msgs<a.msgs?b:a);
+  note(T('Sab padhte hai, <em>bolta koi nahi.</em>','Reads everything. <em>Says nothing.</em>'),'lilac',T('Silent reader','The lurker'),
+    `<div class="nname">${N(lur)}</div><div class="nbody">${T(`${span} mein sirf ${fmtN(lur.msgs)} messages. Par seen sabka kiya hai.`,`${fmtN(lur.msgs)} messages in ${span}. Has seen everything. Will testify to nothing.`)}</div>${lb(r,p=>p.msgs,fmtN,{asc:true,n:3,keepZero:true})}`,DOODLE.zz);
+  const [pa,pb,pc]=r.pairs[0]||[0,1,0];
+  note(T('Group ke andar <em>besties.</em>','The besties <em>inside the group.</em>'),'cream',T('Asli jodi','The real duo'),
+    `<div class="nname">${N(r.M[pa])} &amp; ${N(r.M[pb])}</div><div class="nbody">${T(`${fmtN(pc)} baar ek doosre ko reply. Alag group bana lo yaar.`,`${fmtN(pc)} back-and-forths. Get a room. Or a separate chat.`)}</div>
+     <div class="duo">${r.pairs.slice(1).map(([a,b,c])=>`<div class="drow" style="grid-template-columns:minmax(0,1fr) auto"><span class="dn">${N(r.M[a])} &amp; ${N(r.M[b])}</span><span class="dv">${fmtN(c)}</span></div>`).join('')}</div>`,DOODLE.heart.replace('doodle bl','doodle'));
+  const pl=topBy(r,p=>p.plans), plTot=r.M.reduce((s,p)=>s+p.plans,0);
+  note(T('Kal <em>pakka?</em>','The plans that <em>never happened.</em>'),'butter',T('Kal pakka','Chief planning officer'),
+    plTot?`<div class="nname">${N(pl)}</div><div class="nbody">${T(`Group mein ${fmtN(plTot)} plans bane. Attendance: classified.`,`${fmtN(plTot)} plans floated in this group. Attendance: classified.`)}</div>${lb(r,p=>p.plans)}`
+      :`<div class="nname">${T('Zero plans','Zero plans')}</div><div class="nbody">${T('Is group ne kabhi milne ka plan hi nahi banaya. Iconic.','This group has never once tried to meet up. Iconic.')}</div>`,DOODLE.calendar);
+  const dp=topBy(r,p=>p.double);
+  note(T('Reply nahi aaya <em>toh?</em>','When nobody <em>replies.</em>'),'sage',T('"Oye??" champion','The "??" spammer'),
+    `<div class="nname">${N(dp)}</div><div class="nbody">${T(`${fmtN(dp.double)} baar "oye??" "hello??" bheja. Kisi ne nahi suna.`,`${fmtN(dp.double)} follow-ups into the void. The void did not reply.`)}</div>${lb(r,p=>p.double)}`,DOODLE.crown);
+  const dr=topBy(r,p=>p.textMsgs?p.dry/p.textMsgs:0,p=>p.textMsgs>=20);
+  note(T('Dry reply <em>alert.</em>','Dry reply <em>alert.</em>'),'butter',T('Hmm machine','Captain K'),
+    `<div class="nname">${N(dr)}</div><div class="nbody">${T(`${fmtN(dr.dry)} baar "hmm", "ok", "k". Group ki emotional support... deewar.`,`${fmtN(dr.dry)} "ok"s and "k"s. The group's emotional support wall.`)}</div>${lb(r,p=>p.dry)}`,DOODLE.zz);
+  const lg=topBy(r,p=>p.laughs);
+  note(T('Sabse zyada <em>kaun hasta hai?</em>','Who laughs <em>the most?</em>'),'lilac',T('Haha machine','Laugh track'),
+    `<div class="nname">${N(lg)}</div><div class="nbody">${T(`${fmtN(lg.laughs)} baar hasi. Ya toh group funny hai, ya yeh bahut acche insaan hai.`,`${fmtN(lg.laughs)} laughs. Either this group is hilarious or they're just being nice.`)}</div>${lb(r,p=>p.laughs)}`,DOODLE.laugh);
+  return notes;
+}
+function renderNotesG(r,mode){
+  const tilts=[-1.6,1.3,-0.9,1.1,-1.3,0.7,-0.6,1.5,-1.1];
+  $('notes').innerHTML=buildNotesG(r,mode).map((n,i)=>`<div class="nwrap" style="transform:rotate(${tilts[i%9]}deg)"><div class="note ${n.cls}" style="clip-path:${torn(i+3)}">${n.h}</div></div>`).join('');
+  const D=mode==='desi';
+  $('repEyebrow').innerHTML=`Group report · ${gname()} · ${r.M.length} people · ${fmtN(r.total)} messages`;
+  $('repTitle').innerHTML=D?'Group ka <em>asli sach.</em>':'The <em>group chat.</em>';
+}
+function storyItemsG(r,mode){
+  const D=mode==='desi', T=(d,g)=>D?d:g, nm=i=>first(r.M[i].name), items=[];
+  if(r.firstText){const ft=r.firstText, txt=esc(ft.text.length>70?ft.text.slice(0,68)+'…':ft.text);
+    items.push({t:ft.t,what:T('Sab yahin se shuru hua.','It all started.'),detail:(state.anon||!ft.text)?nm(ft.who):`“${txt}” · ${nm(ft.who)}`});}
+  items.push({t:new Date(r.peak.y,r.peak.m,15).getTime(),what:T('Peak group.','Peak group chat.'),detail:T(`${fmtN(r.peak.c)} messages ek mahine mein.`,`${fmtN(r.peak.c)} messages in one month.`)});
+  if(r.nightPeak&&r.nightPeak.c>=10) items.push({t:new Date(r.nightPeak.y,r.nightPeak.m,20).getTime(),what:T('2am era.','The 2am era.'),detail:T(`${fmtN(r.nightPeak.c)} texts raat 12 ke baad.`,`${fmtN(r.nightPeak.c)} texts after midnight.`)});
+  const gd=Math.round(r.maxGap/864e5);
+  if(gd>=4) items.push({t:r.gapFrom,what:T('Chuppi.','The quiet era.'),detail:T(`${gd} din group chup. ${nm(r.gapBreak)} ne chuppi todi.`,`${gd} days of silence. ${nm(r.gapBreak)} broke it.`)});
+  items.push({t:keyDate(r.streakEnd),what:T('Streak.','The streak.'),detail:T(`${fmtN(r.streak)} din lagatar.`,`${fmtN(r.streak)} days in a row.`)});
+  items.push({t:r.last,what:T('Ab.','Now.'),detail:T(`${fmtN(r.total)} messages aur jaari.`,`${fmtN(r.total)} messages and counting.`)});
+  return items.sort((x,y)=>x.t-y.t);
+}
+function typeDataG(r,mode){
+  const D=mode==='desi', T=(d,g)=>D?d:g, S=k=>r.M.reduce((s,p)=>s+p[k],0);
+  const perMsg=(S('laughs')+S('double'))/r.total, spanDays=Math.max(1,(r.last-r.first)/864e5), cover=r.activeDays/spanDays, perDay=r.total/Math.max(1,r.activeDays);
+  const w=[perMsg>0.12?'Chaotic.':'Chill.', cover>0.6||r.streak>=14?T('Pakka.','Loyal.'):T('On-off.','On-and-off.'), perDay>60?'Unhinged.':perDay>20?'Tight.':'Low-key.'];
+  const talk=topBy(r,p=>p.msgs), lur=r.M.reduce((a,b)=>b.msgs<a.msgs?b:a);
+  const para=T(`${first(talk.name)} group chala raha hai, ${first(lur.name)} sirf seen karta hai, aur phir bhi roz ${fmtN(perDay)} messages aate hai. Isko therapy nahi, group chat kehte hai.`,`${first(talk.name)} runs the show, ${first(lur.name)} only watches, and somehow ${fmtN(perDay)} messages land every day. Cheaper than therapy.`);
+  return {w,para};
+}
+function renderStoryG(r,mode){
+  $('timeline').innerHTML=storyItemsG(r,mode).map(it=>`<li><div class="when">${esc(new Date(it.t).toLocaleDateString(undefined,{month:'short',year:'numeric'}))}</div><div class="what">${it.what}</div><div class="detail">${it.detail}</div></li>`).join('');
+  $('polCap').innerHTML=`${gname()} · est. ${new Date(r.first).getFullYear()}`;
+  const ty=typeDataG(r,mode), D=mode==='desi';
+  $('typeNote').style.clipPath=torn(42);
+  $('typeNote').innerHTML=`<div class="ntitle">${D?'Group ka type':'Your group type'}</div><div class="typewords"><span>${ty.w[0]}</span><span>${ty.w[1]}</span><span>${ty.w[2]}</span></div><div class="typepara">${ty.para}</div>${DOODLE.ticks.replace('class="doodle"','class="doodle bl"')}`;
+}
+function computeCalloutG(r,mode){
+  const D=mode==='desi';
+  const order=r.M.map((p,i)=>i).filter(i=>r.awards[i]!=='steady').slice(0,3);
+  const list=order.map(i=>`${first(r.M[i].name)} is "${gAward(r,i,D)[0]}"`).join(', ');
+  const gh=r.awards.indexOf('ghost');
+  state.callout=D?`${gname()} ke SeenZone awards aa gaye: ${list.replace(/ is /g,' hai ')}. Defend karo 👀`:`SeenZone's awards for ${gname()} are in: ${list}. Defend yourselves 👀`;
+  state.callout=state.callout.replace(/&amp;/g,'&');
+  $('calloutText').textContent=`“${state.callout}”`;
+  updateShareLinks();
+  return {};
+}
+function buildSlidesG(r,mode){
+  const D=mode==='desi', T=(d,g)=>D?d:g, nm=i=>first(r.M[i].name);
+  const tilts=[-2,1.6,-1.2,1.4,-1.6,1,-0.8,1.8,-1.4,1.2], S=[];
+  const slide=(q,inner,foot)=>S.push({bg:SLBG[S.length%SLBG.length],h:`${q?`<h3 class="slq">${q}</h3>`:''}<div class="slmid"><div class="nwrap" style="transform:rotate(${tilts[S.length%tilts.length]}deg)">${inner}</div></div>${foot?`<div class="slfoot">${foot}</div>`:''}`});
+  const tornNote=(cls,html,seed)=>`<div class="note ${cls}" style="clip-path:${torn(seed)}">${html}</div>`;
+  const ft=r.firstText, span=spanText(r,D);
+  slide(`${gname()}<br><em>${r.M.length} ${T('log, zero chill','people, zero chill')}</em>`,
+    tornNote('ruled',`<div class="ntitle">${T('Sab yahin se shuru hua','It all started with')}</div>${ft?`<div class="nbody" style="max-width:100%">${(state.anon||!ft.text)?T('(message chhupa diya)','(message hidden)'):`“${esc(ft.text.length>90?ft.text.slice(0,88)+'…':ft.text)}”`}</div><div class="nsmall">${nm(ft.who)} · ${fmtDate(ft.t)}</div>`:''}
+      <div class="nsmall"><b>${span}</b> ${T('ka group','of group chat')} · ${fmtN(r.total)} messages</div>
+      ${r.capped?`<div class="capnote">${T('WhatsApp sirf latest 40,000 messages export karta hai.','WhatsApp only exports your latest 40,000 messages, so this is where your export begins.')}</div>`:''}`,7),
+    T('tap karo, shuru karte hai →','tap to start →'));
+  const L=r.longest, ldur=L?Math.max(1,Math.round((L.e-L.s)/60e3)):0, ldt=ldur>=60?`${Math.floor(ldur/60)}h ${ldur%60}m`:`${ldur}m`;
+  slide(T('Numbers <em>bolte hai.</em>','By the <em>numbers.</em>'),
+    tornNote('butter',`<div class="ntitle">${T('Poora hisaab','The full tally')}</div><div class="bign">
+      <div><b>${fmtN(r.total)}</b>messages ${T('in','over')} ${span}</div>
+      <div><b>${r.M.length}</b>${T('log group mein','people in the group')}</div>
+      <div><b>${fmtN(r.activeDays)}</b>${T('din jab group active tha','days the group was active')}</div>
+      ${L?`<div><b>${fmtN(L.n)}</b>${T(`messages ek hi baat mein · ${ldt} · ${fmtDate(L.s)}`,`messages in your longest chat · ${ldt} · ${fmtDate(L.s)}`)}</div>`:''}
+    </div>`,13),'');
+  buildNotesG(r,mode).forEach((n,i)=>slide(n.q,tornNote(n.cls,n.h,i+3),''));
+  const items=storyItemsG(r,mode);
+  slide(T('Group ke <em>eras.</em>','Your <em>eras.</em>'),
+    tornNote('cream',`<div class="ntitle">${T('Timeline','The timeline')}</div><ol class="minitl">${items.map(it=>`<li><b>${esc(new Date(it.t).toLocaleDateString(undefined,{month:'short',year:'numeric'}))} · ${it.what}</b>${it.detail}</li>`).join('')}</ol>`,31),'');
+  const ty=typeDataG(r,mode);
+  slide(T('Group <em>ka type.</em>','Your group <em>type.</em>'),
+    tornNote('peach',`<div class="ntitle">${T('Official result','Official result')}</div><div class="typewords"><span>${ty.w[0]}</span><span>${ty.w[1]}</span><span>${ty.w[2]}</span></div><div class="typepara">${ty.para}</div>`,42),'');
+  computeCalloutG(r,mode);
+  const shown=r.M.map((p,i)=>i).slice(0,8), gh=r.awards.indexOf('ghost'), target=gh>=0?nm(gh):nm(r.M.length-1);
+  S.push({bg:'#efe6d6',h:`<div class="slmid" style="align-items:stretch"><div class="nwrap" style="transform:rotate(-1deg);width:100%"><div class="rc">
+    <div class="stamp">${esc(ty.w[0].replace('.',''))}<br>✓✓</div>
+    <h4>${T('Group<br>awards','The group<br>awards')}</h4>
+    <div class="term">${gname()} · ${new Date(r.first).getFullYear()}–${new Date(r.last).getFullYear()}</div>
+    <table><thead><tr><th>${T('Naam','Member')}</th><th>${T('Award','Award')}</th></tr></thead>
+    <tbody>${shown.map(i=>`<tr><td>${nm(i)}</td><td class="aw">${esc(gAward(r,i,D)[0])}</td></tr>`).join('')}</tbody></table>
+    ${r.M.length>8?`<div class="term" style="margin-top:2cqw">+ ${r.M.length-8} ${T('aur','more')}</div>`:''}
+  </div></div></div><div class="slfoot">${target}, ${T('defend karo','defend yourself')} 👀</div>`});
+  return S;
+}
+function buildTableG(r,mode){
+  const D=mode==='desi';
+  $('table').innerHTML=`<thead><tr><th>Member</th><th>Messages</th><th>Started chats</th><th>Typical reply</th><th>After midnight</th><th>Media</th><th>Laughs</th><th>Dry replies</th><th>Award</th></tr></thead><tbody>${r.M.map((p,i)=>`<tr><td>${esc(p.name)}</td><td class="n">${fmtN(p.msgs)}</td><td class="n">${fmtN(p.starts)}</td><td class="n">${fmtDur(p.medianReply)}</td><td class="n">${fmtN(p.night)}</td><td class="n">${fmtN(p.media)}</td><td class="n">${fmtN(p.laughs)}</td><td class="n">${fmtN(p.dry)}</td><td>${esc(gAward(r,i,D)[0])}</td></tr>`).join('')}</tbody>`;
+}
+async function drawVerdictG(){
+  if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+  const r=state.res, D=effMode()==='desi', T=(d,g)=>D?d:g, plain=s=>String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  const c=document.createElement('canvas'); c.width=1080; c.height=1920; const x=c.getContext('2d');
+  x.fillStyle='#f4ede2'; x.fillRect(0,0,1080,1920);
+  x.fillStyle='#1f1b17'; x.font="400 54px 'Instrument Serif', serif"; x.fillText('SeenZone',80,150);
+  x.fillStyle='#3a9fe0'; x.font="700 40px Onest, sans-serif"; x.fillText('✓✓',300,150);
+  x.fillStyle='#1f1b17'; x.font="400 120px 'Instrument Serif', serif"; x.fillText(plain(gname()).slice(0,16),80,340);
+  x.fillStyle='#c4553a'; x.font="italic 400 110px 'Instrument Serif', serif"; x.fillText(T('Group awards','The group awards'),80,470);
+  x.save(); x.translate(540,1060); x.rotate(-1.5*Math.PI/180);
+  x.shadowColor='rgba(70,45,20,.3)'; x.shadowBlur=30; x.shadowOffsetY=12; x.fillStyle='#fdfaf3'; x.fillRect(-470,-480,940,960); x.shadowColor='transparent';
+  r.M.slice(0,8).forEach((p,i)=>{const y=-380+i*110;
+    x.fillStyle='#1f1b17'; x.font="400 46px 'Patrick Hand', cursive"; x.fillText(plain(first(p.name)).slice(0,14),-410,y);
+    x.fillStyle='#a8432b'; x.font="700 58px Caveat, cursive"; x.fillText(gAward(r,i,D)[0],-60,y);
+    x.fillStyle='rgba(0,0,0,.12)'; x.fillRect(-410,y+30,820,2);});
+  x.restore();
+  x.fillStyle='#4d453d'; x.font="400 40px 'Patrick Hand', cursive"; x.fillText(`${r.M.length} ${T('log','people')} · ${fmtN(r.total)} messages`,80,1700);
+  const gh=r.awards.indexOf('ghost'), target=plain(first(r.M[gh>=0?gh:r.M.length-1].name));
+  x.fillStyle='#a8432b'; x.font="700 62px Caveat, cursive"; x.fillText(`${target}, ${T('defend karo','defend yourself')} 👀`,80,1800);
+  x.fillStyle='#7a7066'; x.font="500 30px Onest, sans-serif"; x.fillText(SITE_URL?SITE_URL.replace('https://',''):'SeenZone',80,1870);
+  return c;
+}
+const GF=['msgs','words','media','voice','starts','double','night','laughs','love','questions','dry','plans','calls','sorry','textMsgs','peakHour','lastWord'];
+function packGroup(r){
+  const init=n=>(n.trim()[0]||'?').toUpperCase()+'.', M=r.M.slice(0,15);
+  return {v:3,gn:state.anon?'':(state.groupName||'').slice(0,40),
+    M:M.map(p=>[state.anon?init(p.name):p.name,...GF.map(k=>p[k]),p.medianReply==null?-1:Math.round(p.medianReply/1000),p.replies.length]),
+    aw:r.awards.slice(0,15),pr:r.pairs.filter(x=>x[0]<15&&x[1]<15),t:[mn(r.first),mn(r.last)],a:r.activeDays,s:[r.streak,r.streakEnd],b:[r.busiest.key,r.busiest.count],
+    d:Math.round(r.desiScore*100),pk:[r.peak.y,r.peak.m,r.peak.c],np:r.nightPeak?[r.nightPeak.y,r.nightPeak.m,r.nightPeak.c]:0,
+    g:[mn(r.maxGap),r.gapFrom?mn(r.gapFrom):0,Math.min(r.gapBreak,M.length-1)],
+    f:r.firstText&&r.firstText.who<15?[r.firstText.who,mn(r.firstText.t),state.anon?'':r.firstText.text.slice(0,100)]:0,
+    L:r.longest?[r.longest.n,mn(r.longest.s),mn(r.longest.e)]:0,w:r.words,c:r.capped?1:0};
+}
+function unpackGroup(o){
+  if(!Array.isArray(o.M)||o.M.length<3) throw new Error('bad link');
+  const keys=Object.keys(LOR_GAWARD);
+  const M=o.M.map(a=>{const p={name:String(a[0]).slice(0,40)};GF.forEach((k,i)=>p[k]=+a[i+1]||0);const mr=a[GF.length+1];p.medianReply=mr<0?null:mr*1000;p.replies={length:a[GF.length+2]||0};p.signature=[];p.sigTop=null;p.topEmoji=[];return p});
+  state.groupName=String(o.gn||'');
+  return {group:true,M,names:M.map(p=>p.name),awards:(o.aw||[]).map(k=>keys.includes(k)?k:'steady'),pairs:(o.pr||[]).map(x=>x.map(Number)),
+    total:M.reduce((s,p)=>s+p.msgs,0),first:ms(o.t[0]),last:ms(o.t[1]),activeDays:o.a,streak:o.s[0],streakEnd:o.s[1],busiest:{key:o.b[0],count:o.b[1]},
+    desiScore:o.d/100,peak:{y:o.pk[0],m:o.pk[1],c:o.pk[2],k:o.pk[0]*12+o.pk[1]},nightPeak:o.np?{y:o.np[0],m:o.np[1],c:o.np[2]}:null,
+    maxGap:ms(o.g[0]),gapFrom:ms(o.g[1]),gapBreak:o.g[2],firstText:o.f?{who:o.f[0],t:ms(o.f[1]),text:String(o.f[2]||'')}:null,
+    longest:o.L?{n:o.L[0],s:ms(o.L[1]),e:ms(o.L[2])}:null,words:o.w,capped:!!o.c};
+}
+
 function renderExRow(){
   const ex=state.example;
   if(state.shared){
@@ -1165,8 +1529,9 @@ function renderExRow(){
   }
   $('exRow').innerHTML=ex?`<span class="tag">Example</span><span>Made-up chat. Switch:</span>
     <button class="chip" type="button" data-ex="global" aria-pressed="${ex==='global'}">Jake &amp; Maya</button>
-    <button class="chip" type="button" data-ex="desi" aria-pressed="${ex==='desi'}">Kabir &amp; Rhea</button>`
-    :`<span class="tag" style="background:var(--hi)">Your chat</span><span>${esc(state.label)}</span><button class="chip" type="button" data-ex="global" aria-pressed="false">See an example</button>`;
+    <button class="chip" type="button" data-ex="desi" aria-pressed="${ex==='desi'}">Kabir &amp; Rhea</button>
+    <button class="chip" type="button" data-ex="group" aria-pressed="${ex==='group'}">The Squad (group)</button>`
+    :`<span class="tag" style="background:var(--hi)">Your chat</span><span>${esc(state.label)}</span>${state.kindNote?`<span class="kindnote">${esc(state.kindNote)}</span>`:''}<button class="chip" type="button" data-ex="global" aria-pressed="false">See an example</button>`;
   $('exRow').querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>loadExample(b.dataset.ex,false));
 }
 
@@ -1174,7 +1539,8 @@ function renderAll(keep){
   const r=state.res, m=effMode();
   renderNotes(r,m);renderStory(r,m);state.slides=buildSlides(r,m);showSlide(keep?state.idx:0);buildTable(r,m);renderExRow();
   $('modeAuto').textContent=state.mode==='auto'?`Auto · ${m==='desi'?'Desi':'Global'}`:'Auto';
-  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
+  document.querySelectorAll('.seg button[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
+  renderKindRow();
 }
 
 function showErr(msg){$('err').textContent=msg;$('err').hidden=false}
@@ -1194,20 +1560,48 @@ function playLoader(res,mode,done){
   };
   requestAnimationFrame(tick);
 }
+function computeRes(){
+  if(state.kind==='group'&&state.senders.length>2) return analyzeGroup(state.raw);
+  return analyze(state.raw,state.senders.length>2?state.pair:undefined);
+}
+function renderKindRow(){
+  const isGroup=!!state.raw&&state.senders.length>2;
+  $('kindRow').hidden=!isGroup; $('pairRow').hidden=!(isGroup&&state.kind==='pair');
+  if(!isGroup) return;
+  document.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===state.kind)));
+  const opts=state.senders.slice(0,40).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if($('pA').dataset.k!==state.senders.join('|')){$('pA').innerHTML=opts;$('pB').innerHTML=opts;$('pA').dataset.k=state.senders.join('|')}
+  $('pA').value=state.pair[0];$('pB').value=state.pair[1];
+}
+function recompute(){
+  try{state.res=computeRes();$('err').hidden=true;renderAll()}catch(e){showErr(e.message)}
+}
 function run(text,label,example,scroll){
   $('err').hidden=true;
   let res;
-  try{res=analyze(parseChat(text))}catch(e){showErr(e.message||'Could not read that file. Make sure it is a WhatsApp chat export.');return}
+  try{
+    const msgs=parseChat(text), c={};
+    const gm=/WhatsApp Chat (?:with |- )(.+?)(?:\.txt|\.zip)?$/i.exec(label||'');
+    if(gm){const g=gm[1].trim().toLowerCase();for(let i=msgs.length-1;i>=0;i--) if(msgs[i].who.trim().toLowerCase()===g) msgs.splice(i,1);}
+    for(const m of msgs) c[m.who]=(c[m.who]||0)+1;
+    const senders=Object.keys(c).sort((a,b)=>c[b]-c[a]);
+    state.raw=msgs;state.senders=senders;state.kind=senders.length>2?'group':'pair';state.pair=senders.slice(0,2);state.kindNote='';
+    if(!example&&state.want==='pair'&&senders.length>2){state.kind='pair';state.kindNote=`This export has ${senders.length} people, so here are the two most active. Pick others below, or switch to Whole group.`;}
+    if(!example&&state.want==='group'&&senders.length<=2){state.kindNote='This chat only has 2 people, so here is your friendship story instead of a group one.';}
+    state.want=null;
+    state.groupName=example==='group'?'The Squad':gm?gm[1].trim():'';
+    res=computeRes();
+  }catch(e){showErr(e.message||'Could not read that file. Make sure it is a WhatsApp chat export.');return}
   const apply=()=>{
     state.res=res;state.label=label;state.example=example;state.shared=false;
     if(location.hash.startsWith('#r=')) history.replaceState(null,'',location.pathname);
     renderAll();
-    $('status').textContent=example?'':`Read ${fmtN(res.total)} messages from ${label}. Your story is below.`;
+    $('status').textContent=example?'':`Read ${fmtN(state.raw.length)} messages from ${label}. Your story is below.`;
     if(scroll) $('story-sec').scrollIntoView({behavior:'auto'});
   };
   if(scroll){const m=state.mode==='auto'?(res.desiScore>=0.06?'desi':'global'):state.mode;playLoader(res,m,apply)}else apply();
 }
-function loadExample(kind,scroll){run(sampleChat(kind),'',kind,scroll)}
+function loadExample(kind,scroll){run(kind==='group'?sampleGroup():sampleChat(kind),'',kind,scroll)}
 async function readFile(f){
   try{
     if(/\.zip$/i.test(f.name)||f.type.includes('zip')){
@@ -1221,7 +1615,7 @@ async function readFile(f){
 }
 
 /* sheet */
-function openSheet(html){$('sheetBody').innerHTML=html;$('sheet').hidden=false;$('sheetClose').focus()}
+function openSheet(html,title,closeLabel){$('sheetTitle').textContent=title||'Ready to share';$('sheetClose').textContent=closeLabel||'Done';$('sheetBody').innerHTML=html;$('sheet').hidden=false;$('sheetClose').focus()}
 $('sheetClose').onclick=()=>{$('sheet').hidden=true};
 $('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('sheet').hidden=true});
@@ -1242,6 +1636,7 @@ async function cardImage(){
 }
 /* Backup: draw the verdict card directly. Works in every browser because it uses no page capture. */
 async function drawVerdict(){
+  if(state.res&&state.res.group) return drawVerdictG();
   if(document.fonts&&document.fonts.ready) await document.fonts.ready;
   const r=state.res, m=effMode(), D=m==='desi', T=(d,g)=>D?d:g;
   const [A,B]=r.P, plain=s=>String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
@@ -1295,6 +1690,8 @@ $('saveBtn').onclick=async()=>{
   }catch(e){openSheet(`<p>Could not make the image. Take a screenshot of the card instead.</p><p style="font-size:12px">(${esc((e&&e.message)||String(e)).slice(0,160)})</p>`)}
   finally{btn.disabled=false;btn.innerHTML=label}
 };
+document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{state.kind=b.dataset.kind;recompute()});
+['pA','pB'].forEach(id=>$(id).onchange=()=>{const a=$('pA').value,b=$('pB').value;if(a===b){showErr('Pick two different people.');return}state.pair=[a,b];recompute()});
 $('anonBox').onchange=e=>{state.anon=e.target.checked;renderAll(true)};
 $('prevBtn').onclick=()=>showSlide(state.idx-1);
 $('nextBtn').onclick=()=>showSlide(state.idx+1);
@@ -1308,8 +1705,15 @@ $('calloutBtn').onclick=()=>{
   try{navigator.clipboard.writeText(text).then(()=>{const b=$('calloutBtn');b.textContent='Copied ✓✓';setTimeout(()=>b.textContent='Copy call-out',1800)},fallback)}catch(e){fallback()}
 };
 
-document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;renderAll(true)});
-document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>$('file').click());
+document.querySelectorAll('.seg button[data-mode]').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;renderAll(true)});
+function openChooser(){
+  openSheet(`<div class="kinds">
+    <button type="button" class="kind" data-want="pair"><span class="ki" aria-hidden="true">💬</span><b>Me and one friend</b><span>Open your chat with them → ⋮ or their name → Export chat → Without media</span></button>
+    <button type="button" class="kind" data-want="group"><span class="ki" aria-hidden="true">👥</span><b>A group chat</b><span>Open the group → tap the group name → Export chat → Without media</span></button>
+  </div><p style="font-size:12.5px">Your chat stays on your phone either way.</p>`,'Whose chat is it?','Cancel');
+  document.querySelectorAll('[data-want]').forEach(b=>b.onclick=()=>{state.want=b.dataset.want;$('sheet').hidden=true;$('file').click()});
+}
+document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=openChooser);
 $('tryEx').onclick=()=>loadExample(state.example||'global',true);
 $('file').onchange=e=>{if(e.target.files[0]) readFile(e.target.files[0]);e.target.value=''};
 $('pasteBtn').onclick=()=>{const t=$('paste').value.trim();if(t) run(t,'pasted text',null,true);else showErr('Paste the exported chat text first.')};
@@ -1321,7 +1725,7 @@ async function loadShared(){
   let res;
   try{res=await readShareLink()}catch(e){loadExample('global',false);showErr('That shared link looks broken or cut off. Ask your friend to send it again.');return}
   const m=state.mode==='auto'?(res.desiScore>=0.06?'desi':'global'):state.mode;
-  playLoader(res,m,()=>{state.res=res;state.example=null;state.shared=true;state.label='';renderAll();$('story-sec').scrollIntoView({behavior:'auto'})});
+  playLoader(res,m,()=>{state.raw=null;state.senders=[];state.res=res;state.example=null;state.shared=true;state.label='';renderAll();$('story-sec').scrollIntoView({behavior:'auto'})});
 }
 if(location.hash.startsWith('#r=')) loadShared(); else loadExample('global',false);
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#r=')) loadShared()});
