@@ -417,10 +417,10 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
         <div class="callout" id="calloutText"></div>
         <div class="btns">
           <button class="btn" type="button" id="saveBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Share to Story</button>
-          <a class="btn line" id="waBtn" href="https://wa.me/" target="_blank" rel="noopener">Send to them on WhatsApp</a>
+          <a class="btn line" id="waBtn" href="https://wa.me/" target="_blank" rel="noopener">Send your results on WhatsApp</a>
           <button class="btn line" type="button" id="calloutBtn">Copy call-out</button>
         </div>
-        <div class="sharehint" id="shareHint">Shares the card you're on. Swipe to the report card for the verdict.
+        <div class="sharehint" id="shareHint">Share to Story uses the card you're on. The WhatsApp button sends a link that opens these same results for your friend, with no upload and no message text inside.
         </div>
         </div>
       </div>
@@ -861,7 +861,7 @@ function fmtDate(t){return new Date(t).toLocaleDateString(undefined,{day:'numeri
 function monthYear(y,m){return new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'})}
 function keyDate(k){return new Date(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100).getTime()}
 
-const state={anon:false,res:null,mode:'auto',example:'global',callout:'',slides:[],idx:0};
+const state={shared:false,shareLink:'',anon:false,res:null,mode:'auto',example:'global',callout:'',slides:[],idx:0};
 const effMode=()=>state.mode==='auto'?(state.res&&state.res.desiScore>=0.06?'desi':'global'):state.mode;
 
 /* hand-drawn doodles */
@@ -973,7 +973,7 @@ function storyItems(r,mode){
   const D=mode==='desi', T=(d,g)=>D?d:g, [A,B]=r.P, a=first(A.name), b=first(B.name);
   const items=[];
   if(r.firstText){const ft=r.firstText, txt=esc(ft.text.length>70?ft.text.slice(0,68)+'…':ft.text);
-    items.push({t:ft.t,what:T('Sab yahin se shuru hua.','It all started.'),detail:state.anon?`${ft.who===0?a:b}`:`“${txt}” · ${ft.who===0?a:b}`});}
+    items.push({t:ft.t,what:T('Sab yahin se shuru hua.','It all started.'),detail:(state.anon||!ft.text)?`${ft.who===0?a:b}`:`“${txt}” · ${ft.who===0?a:b}`});}
   items.push({t:new Date(r.peak.y,r.peak.m,15).getTime(),what:T('Peak dosti.','Peak friendship.'),detail:T(`${fmtN(r.peak.c)} messages ek mahine mein.`,`${fmtN(r.peak.c)} messages in one month.`)});
   if(r.nightPeak&&r.nightPeak.c>=10) items.push({t:new Date(r.nightPeak.y,r.nightPeak.m,20).getTime(),what:T('2am era.','The 2am era.'),detail:T(`${fmtN(r.nightPeak.c)} texts raat 12 ke baad.`,`${fmtN(r.nightPeak.c)} texts after midnight.`)});
   const gd=Math.round(r.maxGap/864e5);
@@ -1008,7 +1008,7 @@ function computeCallout(r,mode){
   const target=(kb==='ghost'||(ka!=='ghost'&&r.effort[1]<=r.effort[0]))?1:0, tp=target?pb:pa, tn=target?b:a;
   state.callout=D?`${tn}, SeenZone ke hisaab se tum officially "${tp[0]}" ho. ${tp[1]} Defend karo 👀`:`${tn}, SeenZone says you're officially "${tp[0]}". ${tp[1]} Defend yourself 👀`;
   $('calloutText').textContent=`“${state.callout}”`;
-  $('waBtn').href='https://wa.me/?text='+encodeURIComponent(state.callout+(SITE_URL?' '+SITE_URL:''));
+  updateShareLinks();
   return {pa,pb,tn};
 }
 
@@ -1022,7 +1022,7 @@ function buildSlides(r,mode){
   const ft=r.firstText, span=spanText(r,D);
   // 1 cover
   slide(`${a} &amp;<br><em>${b}</em>`,
-    tornNote('ruled',`<div class="ntitle">${T('Sab yahin se shuru hua','It all started with')}</div>${ft?`<div class="nbody" style="max-width:100%">${state.anon?T('(message chhupa diya)','(message hidden)'):`“${esc(ft.text.length>90?ft.text.slice(0,88)+'…':ft.text)}”`}</div><div class="nsmall">${ft.who===0?a:b} · ${fmtDate(ft.t)}</div>`:''}
+    tornNote('ruled',`<div class="ntitle">${T('Sab yahin se shuru hua','It all started with')}</div>${ft?`<div class="nbody" style="max-width:100%">${(state.anon||!ft.text)?T('(message chhupa diya)','(message hidden)'):`“${esc(ft.text.length>90?ft.text.slice(0,88)+'…':ft.text)}”`}</div><div class="nsmall">${ft.who===0?a:b} · ${fmtDate(ft.t)}</div>`:''}
       <div class="nsmall"><b>${span}</b> ${T('ki dosti','of friendship')} · ${fmtN(r.total)} messages</div>
       ${r.capped?`<div class="capnote">${T('WhatsApp sirf latest 40,000 messages export karta hai, isliye yeh yahin se shuru hota hai.','WhatsApp only exports your latest 40,000 messages, so this is where your export begins.')}</div>`:''}`,7),
     T('tap karo, shuru karte hai →','tap to start →'));
@@ -1102,8 +1102,52 @@ function buildTable(r,mode){
     <tr><td>Persona</td><td>${esc(pa)}</td><td>${esc(pb)}</td></tr></tbody>`;
 }
 
+/* ---- Shareable result links ----
+   The link carries the computed results (counts, personas, dates, first names) after a "#".
+   Browsers never send the part after "#" to the server, and no message text is included. */
+const b64u={enc:u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
+  dec:str=>{const s=atob(str.replace(/-/g,'+').replace(/_/g,'/'));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}};
+async function streamBytes(u8,Ctor){const cs=new Ctor('deflate-raw');const w=cs.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer())}
+function packResult(r){
+  const init=n=>(n.trim()[0]||'?').toUpperCase()+'.';
+  const P=r.P.map(p=>{const {vocab,emoji,hours,replies,...rest}=p;const o={...rest,rc:replies.length};if(state.anon){o.name=init(p.name);o.signature=[];o.sigTop=null}return o});
+  const out={v:1,...r,P,names:P.map(p=>p.name),firstText:r.firstText?{who:r.firstText.who,t:r.firstText.t,text:''}:null};
+  return out;
+}
+function unpackResult(o){
+  if(!o||o.v!==1||!Array.isArray(o.P)||o.P.length!==2) throw new Error('bad link');
+  o.P.forEach(p=>{p.replies={length:p.rc||0};p.name=String(p.name||'?').slice(0,40);p.topEmoji=p.topEmoji||[];p.signature=p.signature||[]});
+  return o;
+}
+async function makeShareLink(r){
+  const json=new TextEncoder().encode(JSON.stringify(packResult(r)));
+  let code='j'+b64u.enc(json);
+  try{if(window.CompressionStream) code='z'+b64u.enc(await streamBytes(json,CompressionStream))}catch(e){}
+  return (SITE_URL||location.origin+location.pathname)+'#r='+code;
+}
+async function readShareLink(){
+  const code=location.hash.slice(3), kind=code[0], bytes=b64u.dec(code.slice(1));
+  const raw=kind==='z'?await streamBytes(bytes,DecompressionStream):bytes;
+  return unpackResult(JSON.parse(new TextDecoder().decode(raw)));
+}
+let linkSeq=0;
+async function updateShareLinks(){
+  if(!state.res) return;
+  const seq=++linkSeq;
+  let link=SITE_URL;
+  try{link=await makeShareLink(state.res)}catch(e){}
+  if(seq!==linkSeq) return;
+  state.shareLink=link;
+  $('waBtn').href='https://wa.me/?text='+encodeURIComponent(state.callout+' '+link);
+}
+
 function renderExRow(){
   const ex=state.example;
+  if(state.shared){
+    $('exRow').innerHTML=`<span class="tag" style="background:var(--n-peach)">Sent to you</span><span>Someone shared this story with you. Want yours?</span><button class="chip" type="button" id="ownBtn">Make your own →</button>`;
+    $('ownBtn').onclick=()=>{$('top').scrollIntoView();$('file').click()};
+    return;
+  }
   $('exRow').innerHTML=ex?`<span class="tag">Example</span><span>Made-up chat. Switch:</span>
     <button class="chip" type="button" data-ex="global" aria-pressed="${ex==='global'}">Jake &amp; Maya</button>
     <button class="chip" type="button" data-ex="desi" aria-pressed="${ex==='desi'}">Kabir &amp; Rhea</button>`
@@ -1140,7 +1184,8 @@ function run(text,label,example,scroll){
   let res;
   try{res=analyze(parseChat(text))}catch(e){showErr(e.message||'Could not read that file. Make sure it is a WhatsApp chat export.');return}
   const apply=()=>{
-    state.res=res;state.label=label;state.example=example;
+    state.res=res;state.label=label;state.example=example;state.shared=false;
+    if(location.hash.startsWith('#r=')) history.replaceState(null,'',location.pathname);
     renderAll();
     $('status').textContent=example?'':`Read ${fmtN(res.total)} messages from ${label}. Your story is below.`;
     if(scroll) $('story-sec').scrollIntoView({behavior:'auto'});
@@ -1243,7 +1288,7 @@ let tx=null,ty0=null;
 $('story').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty0=e.touches[0].clientY},{passive:true});
 $('story').addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty0;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){showSlide(state.idx+(dx<0?1:-1));e.preventDefault()}tx=null},{passive:false});
 $('calloutBtn').onclick=()=>{
-  const text=state.callout+(SITE_URL?` ${SITE_URL}`:'');
+  const text=state.callout+' '+(state.shareLink||SITE_URL);
   const fallback=()=>{openSheet(`<p>Copy this and send it to your friend:</p><textarea id="calloutCopy" readonly>${esc(text)}</textarea>`);const t=$('calloutCopy');t.focus();t.select()};
   try{navigator.clipboard.writeText(text).then(()=>{const b=$('calloutBtn');b.textContent='Copied ✓✓';setTimeout(()=>b.textContent='Copy call-out',1800)},fallback)}catch(e){fallback()}
 };
@@ -1257,7 +1302,14 @@ const drop=$('drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
 drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f) readFile(f)});
-loadExample('global',false);
+async function loadShared(){
+  let res;
+  try{res=await readShareLink()}catch(e){loadExample('global',false);showErr('That shared link looks broken or cut off. Ask your friend to send it again.');return}
+  const m=state.mode==='auto'?(res.desiScore>=0.06?'desi':'global'):state.mode;
+  playLoader(res,m,()=>{state.res=res;state.example=null;state.shared=true;state.label='';renderAll();$('story-sec').scrollIntoView({behavior:'auto'})});
+}
+if(location.hash.startsWith('#r=')) loadShared(); else loadExample('global',false);
+window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#r=')) loadShared()});
 })();
 </script>
 </body>
