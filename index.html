@@ -272,7 +272,7 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
 .snav{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .navbtn{width:42px;height:42px;border-radius:50%;border:0;background:var(--paper-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule);font-size:18px;cursor:pointer}
 .navbtn:disabled{opacity:.35;cursor:default}
-.story.capturing{border-radius:0;box-shadow:none}
+.story.capturing{border-radius:0;box-shadow:none;--noise:none}
 .story.capturing .note{clip-path:none!important}
 .story.capturing .bars,.story.capturing .tap{display:none}
 .story.capturing .slmid>.nwrap{animation:none;filter:none}
@@ -1171,19 +1171,59 @@ async function cardImage(){
   if(document.fonts&&document.fonts.ready) await document.fonts.ready;
   el.classList.add('capturing');
   try{
-    const canvas=await html2canvas(el,{scale:1080/el.offsetWidth,backgroundColor:'#f4ede2',logging:false});
+    const opts={backgroundColor:'#f4ede2',logging:false,useCORS:false,foreignObjectRendering:false,imageTimeout:3000,
+      onclone:doc=>{doc.querySelectorAll('script').forEach(s=>s.remove())}};
+    let canvas;
+    try{canvas=await html2canvas(el,{...opts,scale:1080/el.offsetWidth})}
+    catch(e1){canvas=await html2canvas(el,{...opts,scale:2})}
+    canvas.toDataURL('image/png'); // throws early if the browser blocked reading the image
     return canvas;
   }finally{el.classList.remove('capturing')}
 }
-function imageSheet(url){
-  openSheet(`<div style="display:flex;flex-direction:column;gap:12px;align-items:center"><img src="${url}" alt="Story card image"><p>Press and hold the image, then <b>Save</b> or <b>Share → Instagram → Story</b>.<br>On a computer: right-click → Save image.</p><a class="btn" href="${url}" download="seenzone-${state.idx+1}.png">Download PNG</a></div>`);
+/* Backup: draw the verdict card directly. Works in every browser because it uses no page capture. */
+async function drawVerdict(){
+  if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+  const r=state.res, m=effMode(), D=m==='desi', T=(d,g)=>D?d:g;
+  const [A,B]=r.P, plain=s=>String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  const a=plain(first(A.name)), b=plain(first(B.name));
+  const [ka,kb]=r.personaKeys, pa=LOR_PERSONA[ka][D?'d':'g'], pb=LOR_PERSONA[kb][D?'d':'g'];
+  const c=document.createElement('canvas'); c.width=1080; c.height=1920;
+  const x=c.getContext('2d');
+  x.fillStyle='#f4ede2'; x.fillRect(0,0,1080,1920);
+  const wrap=(text,maxW)=>{const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);return lines};
+  x.fillStyle='#1f1b17'; x.font="400 54px 'Instrument Serif', serif"; x.fillText('SeenZone',80,150);
+  x.fillStyle='#3a9fe0'; x.font="700 40px Onest, sans-serif"; x.fillText('✓✓',300,150);
+  x.fillStyle='#1f1b17'; x.font="400 150px 'Instrument Serif', serif"; x.fillText(a+' &',80,380);
+  x.fillStyle='#c4553a'; x.font="italic 400 150px 'Instrument Serif', serif"; x.fillText(b,80,530);
+  const note=(y,rot,bg,fg,who,p)=>{
+    x.save(); x.translate(540,y); x.rotate(rot*Math.PI/180);
+    x.shadowColor='rgba(70,45,20,.3)'; x.shadowBlur=30; x.shadowOffsetY=12;
+    x.fillStyle=bg; x.fillRect(-460,-210,920,420); x.shadowColor='transparent';
+    x.fillStyle=fg; x.font="400 34px 'Patrick Hand', cursive"; x.fillText((who+' '+T('hai','is')).toUpperCase(),-400,-120);
+    x.fillRect(-400,-105,380,3);
+    x.font="400 74px 'Permanent Marker', cursive"; x.fillText(p[0],-400,0);
+    x.font="400 40px 'Patrick Hand', cursive"; wrap(p[1],800).slice(0,2).forEach((l,i)=>x.fillText(l,-400,75+i*48));
+    x.restore();
+  };
+  note(860,-2.5,'#f6e6b0','#1f1b17',a,pa);
+  note(1330,2,'#1f1c1a','#f6efe4',b,pb);
+  x.fillStyle='#4d453d'; x.font="400 40px 'Patrick Hand', cursive";
+  x.fillText(`${fmtN(r.total)} messages · ${fmtN(r.streak)}-${T('din','day')} streak`,80,1690);
+  const target=(kb==='ghost'||(ka!=='ghost'&&r.effort[1]<=r.effort[0]))?b:a;
+  x.fillStyle='#a8432b'; x.font="700 62px Caveat, cursive"; x.fillText(`${target}, ${T('defend karo','defend yourself')} 👀`,80,1800);
+  x.fillStyle='#7a7066'; x.font="500 30px Onest, sans-serif"; x.fillText(SITE_URL?SITE_URL.replace('https://',''):'SeenZone',80,1870);
+  return c;
+}
+function imageSheet(url,why){
+  openSheet(`<div style="display:flex;flex-direction:column;gap:12px;align-items:center"><img src="${url}" alt="Story card image">${why?`<p style="font-size:12px">This phone couldn't capture the card, so here's your verdict card instead. (${esc(why).slice(0,120)})</p>`:''}<p>Press and hold the image, then <b>Save</b> or <b>Share → Instagram → Story</b>.<br>On a computer: right-click → Save image.</p><a class="btn" href="${url}" download="seenzone-${state.idx+1}.png">Download PNG</a></div>`);
 }
 $('saveBtn').onclick=async()=>{
   if(!window.html2canvas){openSheet('<p>Image sharing could not load here. Take a screenshot of the card instead.</p>');return}
   const btn=$('saveBtn'), label=btn.innerHTML;
   btn.disabled=true;btn.textContent='Making your card…';
   try{
-    const canvas=await cardImage();
+    let canvas, backup=false, why='';
+    try{canvas=await cardImage()}catch(err){why=(err&&err.message)||String(err);canvas=await drawVerdict();backup=true}
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
     const file=blob&&new File([blob],`seenzone-${state.idx+1}.png`,{type:'image/png'});
     let shared=false;
@@ -1191,8 +1231,8 @@ $('saveBtn').onclick=async()=>{
       try{await navigator.share({files:[file]});shared=true}
       catch(err){if(err&&err.name==='AbortError') shared=true}
     }
-    if(!shared) imageSheet(canvas.toDataURL('image/png'));
-  }catch(e){openSheet('<p>Could not make the image. Take a screenshot of the card instead.</p>')}
+    if(!shared) imageSheet(canvas.toDataURL('image/png'),backup?why:'');
+  }catch(e){openSheet(`<p>Could not make the image. Take a screenshot of the card instead.</p><p style="font-size:12px">(${esc((e&&e.message)||String(e)).slice(0,160)})</p>`)}
   finally{btn.disabled=false;btn.innerHTML=label}
 };
 $('anonBox').onchange=e=>{state.anon=e.target.checked;renderAll(true)};
