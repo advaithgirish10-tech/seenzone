@@ -420,7 +420,7 @@ td.n.win{font-weight:700;color:var(--accent-ink)}
           <a class="btn line" id="waBtn" href="https://wa.me/" target="_blank" rel="noopener">Send your results on WhatsApp</a>
           <button class="btn line" type="button" id="calloutBtn">Copy call-out</button>
         </div>
-        <div class="sharehint" id="shareHint">Share to Story uses the card you're on. The WhatsApp button sends a link that opens these same results for your friend, with no upload and no message text inside.
+        <div class="sharehint" id="shareHint">Share to Story uses the card you're on. The WhatsApp button sends a link that opens these same results for your friend, with no upload needed.
         </div>
         </div>
       </div>
@@ -1108,16 +1108,29 @@ function buildTable(r,mode){
 const b64u={enc:u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
   dec:str=>{const s=atob(str.replace(/-/g,'+').replace(/_/g,'/'));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}};
 async function streamBytes(u8,Ctor){const cs=new Ctor('deflate-raw');const w=cs.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer())}
+const PF=['msgs','words','media','voice','deleted','starts','lastWord','double','night','laughs','love','questions','dry','plans','calls','sorry','fast','textMsgs','peakHour'];
+const mn=t=>Math.round(t/6e4), ms=m=>m*6e4;
 function packResult(r){
   const init=n=>(n.trim()[0]||'?').toUpperCase()+'.';
-  const P=r.P.map(p=>{const {vocab,emoji,hours,replies,...rest}=p;const o={...rest,rc:replies.length};if(state.anon){o.name=init(p.name);o.signature=[];o.sigTop=null}return o});
-  const out={v:1,...r,P,names:P.map(p=>p.name),firstText:r.firstText?{who:r.firstText.who,t:r.firstText.t,text:''}:null};
-  return out;
+  const P=r.P.map(p=>[state.anon?init(p.name):p.name,...PF.map(k=>p[k]),p.medianReply==null?-1:Math.round(p.medianReply/1000),p.replies.length,
+    state.anon?[]:p.signature,state.anon||!p.sigTop?0:p.sigTop[1],p.topEmoji.join('')]);
+  const ft=r.firstText;
+  return {v:2,P,t:[mn(r.first),mn(r.last)],a:r.activeDays,s:[r.streak,r.streakEnd],b:[r.busiest.key,r.busiest.count],e:Math.round(r.effort[0]*1000),
+    d:Math.round(r.desiScore*100),pk:[r.peak.y,r.peak.m,r.peak.c],np:r.nightPeak?[r.nightPeak.y,r.nightPeak.m,r.nightPeak.c]:0,
+    g:[mn(r.maxGap),r.gapFrom?mn(r.gapFrom):0,r.gapBreak],f:ft?[ft.who,mn(ft.t),state.anon?'':ft.text.slice(0,100)]:0,
+    L:r.longest?[r.longest.n,mn(r.longest.s),mn(r.longest.e)]:0,lt:r.latest?[r.latest.mm,mn(r.latest.t),r.latest.who]:0,w:r.words,c:r.capped?1:0,k:r.personaKeys};
 }
 function unpackResult(o){
-  if(!o||o.v!==1||!Array.isArray(o.P)||o.P.length!==2) throw new Error('bad link');
-  o.P.forEach(p=>{p.replies={length:p.rc||0};p.name=String(p.name||'?').slice(0,40);p.topEmoji=p.topEmoji||[];p.signature=p.signature||[]});
-  return o;
+  if(!o||o.v!==2||!Array.isArray(o.P)||o.P.length!==2) throw new Error('bad link');
+  const P=o.P.map(a=>{const p={name:String(a[0]).slice(0,40)};PF.forEach((k,i)=>p[k]=+a[i+1]||0);let j=PF.length+1;
+    const mr=a[j++];p.medianReply=mr<0?null:mr*1000;p.replies={length:a[j++]};p.signature=(a[j++]||[]).map(String).slice(0,3);
+    const sc=a[j++];p.sigTop=p.signature.length&&sc?[p.signature[0],sc]:null;p.topEmoji=Array.from(String(a[j++]||'').matchAll(/\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*/gu),m=>m[0]).slice(0,3);return p});
+  const keys=Object.keys(LOR_PERSONA), k=(o.k||[]).map(x=>keys.includes(x)?x:'steady');
+  return {P,names:P.map(p=>p.name),total:P[0].msgs+P[1].msgs,first:ms(o.t[0]),last:ms(o.t[1]),activeDays:o.a,streak:o.s[0],streakEnd:o.s[1],
+    busiest:{key:o.b[0],count:o.b[1]},effort:[o.e/1000,1-o.e/1000],desiScore:o.d/100,peak:{y:o.pk[0],m:o.pk[1],c:o.pk[2],k:o.pk[0]*12+o.pk[1]},
+    nightPeak:o.np?{y:o.np[0],m:o.np[1],c:o.np[2]}:null,maxGap:ms(o.g[0]),gapFrom:ms(o.g[1]),gapBreak:o.g[2],
+    firstText:o.f?{who:o.f[0],t:ms(o.f[1]),text:String(o.f[2]||'')}:null,longest:o.L?{n:o.L[0],s:ms(o.L[1]),e:ms(o.L[2])}:null,
+    latest:o.lt?{mm:o.lt[0],t:ms(o.lt[1]),who:o.lt[2]}:null,words:o.w,capped:!!o.c,personaKeys:k,months:[],group:false};
 }
 async function makeShareLink(r){
   const json=new TextEncoder().encode(JSON.stringify(packResult(r)));
@@ -1138,7 +1151,9 @@ async function updateShareLinks(){
   try{link=await makeShareLink(state.res)}catch(e){}
   if(seq!==linkSeq) return;
   state.shareLink=link;
-  $('waBtn').href='https://wa.me/?text='+encodeURIComponent(state.callout+' '+link);
+  const D=effMode()==='desi', noEmoji=state.callout.replace(/\s*\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu,'').trim();
+  state.waText=noEmoji+'\n\n'+(D?'Poore results yahan dekho:':'See our full results:')+'\n'+link;
+  $('waBtn').href='https://wa.me/?text='+encodeURIComponent(state.waText);
 }
 
 function renderExRow(){
@@ -1288,7 +1303,7 @@ let tx=null,ty0=null;
 $('story').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty0=e.touches[0].clientY},{passive:true});
 $('story').addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty0;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){showSlide(state.idx+(dx<0?1:-1));e.preventDefault()}tx=null},{passive:false});
 $('calloutBtn').onclick=()=>{
-  const text=state.callout+' '+(state.shareLink||SITE_URL);
+  const text=state.waText||(state.callout+'\n'+SITE_URL);
   const fallback=()=>{openSheet(`<p>Copy this and send it to your friend:</p><textarea id="calloutCopy" readonly>${esc(text)}</textarea>`);const t=$('calloutCopy');t.focus();t.select()};
   try{navigator.clipboard.writeText(text).then(()=>{const b=$('calloutBtn');b.textContent='Copied ✓✓';setTimeout(()=>b.textContent='Copy call-out',1800)},fallback)}catch(e){fallback()}
 };
